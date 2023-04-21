@@ -36,8 +36,6 @@ function createNewPlayer(socketId) {
 }
 
 io.on("connection", function (socket) {
-  console.log("a user connected");
-
   players[socket.id] = createNewPlayer(socket.id);
 
   console.log(
@@ -47,8 +45,7 @@ io.on("connection", function (socket) {
   );
 
   socket.emit("currentPlayers", players);
-  // send the star object to the new player
-  console.log("aqui")
+  // send the star object to the new player  
   socket.emit("starLocation", star);
   // send the current scores
   socket.emit("scoreUpdate", scores);
@@ -70,8 +67,7 @@ io.on("connection", function (socket) {
     socket.broadcast.emit("playerMoved", players[socket.id]);
   });
 
-  socket.on("starCollected", function () {
-    console.log("tentou mandar star");
+  socket.on("starCollected", function () {    
     if (players[socket.id].team === "red") {
       scores.red += 10;
     } else {

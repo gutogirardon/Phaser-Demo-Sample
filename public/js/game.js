@@ -18,13 +18,80 @@ var config = {
 };
 var game = new Phaser.Game(config);
 
-function preload() {
+function preload() {  
+  var progressBar = this.add.graphics();
+  var progressBox = this.add.graphics();
+  progressBox.fillStyle(0x222222, 0.8);
+  progressBox.fillRect(240, 270, 320, 50);
+
+  // for (var i = 0; i < 15; i++) {
+  //   this.load.image("logo" + i, "assets/girardon.png");
+  // }  
+
+  var width = this.cameras.main.width;
+  var height = this.cameras.main.height;
+  var loadingText = this.make.text({
+    x: width / 2,
+    y: height / 2 - 50,
+    text: "Loading...",
+    style: {
+      font: "20px monospace",
+      fill: "#ffffff",
+    },
+  });
+  loadingText.setOrigin(0.5, 0.5);
+
+  var percentText = this.make.text({
+    x: width / 2,
+    y: height / 2 - 5,
+    text: "0%",
+    style: {
+      font: "18px monospace",
+      fill: "#ffffff",
+    },
+  });
+  percentText.setOrigin(0.5, 0.5);
+
+  var assetText = this.make.text({
+    x: width / 2,
+    y: height / 2 + 50,
+    text: "",
+    style: {
+      font: "18px monospace",
+      fill: "#ffffff",
+    },
+  });
+  assetText.setOrigin(0.5, 0.5);
+
+  this.load.image("logo", "assets/girardon.png");
   this.load.image("ship", "assets/spaceship.png"); //carrega a imagem da nave que o jogador ve
   this.load.image("otherPlayer", "assets/spaceship_enemy.png"); //imagem dos outros jogadores
   this.load.image("star", "assets/star_gold.png");
+
+  this.load.on("progress", function (value) {
+    console.log(value);
+    progressBar.clear();
+    progressBar.fillStyle(0xffffff, 1);
+    progressBar.fillRect(250, 280, 300 * value, 30);
+
+    percentText.setText(parseInt(value * 100) + "%");
+  });
+
+  this.load.on("fileprogress", function (file) {
+    console.log(file.src);
+    assetText.setText("Loading asset: " + file.key);
+  });
+
+  this.load.on("complete", function () {
+    progressBar.destroy();
+    progressBox.destroy();
+    loadingText.destroy();
+    percentText.destroy();
+  });
 }
 
 function create() {
+  var logo = this.add.image(400, 300, "logo");
   var self = this;
   this.socket = io();
   this.otherPlayers = this.physics.add.group();
@@ -77,35 +144,49 @@ function create() {
     self.redScoreText.setText("Red: " + scores.red);
   });
 
-  this.socket.on('starLocation', function (starLocation) {
+  this.socket.on("starLocation", function (starLocation) {
     if (self.star) self.star.destroy();
-    self.star = self.physics.add.image(starLocation.x, starLocation.y, 'star');
-    self.physics.add.overlap(self.ship, self.star, function () {
-      this.socket.emit('starCollected');
-    }, null, self);
+    self.star = self.physics.add.image(starLocation.x, starLocation.y, "star");
+    self.physics.add.overlap(
+      self.ship,
+      self.star,
+      function () {
+        this.socket.emit("starCollected");
+      },
+      null,
+      self
+    );
   });
 }
 
 function update() {
   if (this.ship) {
-    //condicoes relacionadas ao teclado
-    if (this.cursors.left.isDown) {
+    //condicoes relacionadas ao teclado 
+    if (this.cursors.left.isDown || this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A).isDown) {
       this.ship.setAngularVelocity(-150);
-    } else if (this.cursors.right.isDown) {
+    } else if (this.cursors.right.isDown || this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D).isDown) {
       this.ship.setAngularVelocity(150);
     } else {
       this.ship.setAngularVelocity(0);
     }
-
-    if (this.cursors.up.isDown) {
+  
+    if (this.cursors.up.isDown || this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W).isDown) {
       this.physics.velocityFromRotation(
         this.ship.rotation + 1.5,
         100,
         this.ship.body.acceleration
       );
+    } else if (this.cursors.down.isDown || this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S).isDown) {
+      this.physics.velocityFromRotation(
+        this.ship.rotation + 1.5,
+        -100,
+        this.ship.body.acceleration
+      );
     } else {
       this.ship.setAcceleration(0);
     }
+  
+
     this.physics.world.wrap(this.ship, 5); //adicionar a fisica do mundo, fazendo com que atravesse as paredes
 
     var x = this.ship.x;
