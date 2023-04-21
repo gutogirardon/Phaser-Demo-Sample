@@ -21,6 +21,7 @@ var game = new Phaser.Game(config);
 function preload() {
   this.load.image("ship", "assets/spaceship.png"); //carrega a imagem da nave que o jogador ve
   this.load.image("otherPlayer", "assets/spaceship_enemy.png"); //imagem dos outros jogadores
+  this.load.image("star", "assets/star_gold.png");
 }
 
 function create() {
@@ -42,11 +43,10 @@ function create() {
     addOtherPlayers(self, playerInfo);
   });
 
-  this.socket.on("disconnect", function (playerId) {
+  this.socket.on("disconnected", function (playerId) {
+    //aqui é ver o evento que foi emitido no caso o disconnected
     self.otherPlayers.getChildren().forEach(function (otherPlayer) {
-      console.log("chegouu");
       if (playerId === otherPlayer.playerId) {
-        console.log("tentou destruir");
         otherPlayer.destroy();
       }
     });
@@ -61,6 +61,28 @@ function create() {
         otherPlayer.setPosition(playerInfo.x, playerInfo.y);
       }
     });
+  });
+
+  this.blueScoreText = this.add.text(16, 16, "", {
+    fontSize: "50px",
+    fill: "#faf7f7",
+  });
+  this.redScoreText = this.add.text(520, 16, "", {
+    fontSize: "50px",
+    fill: "#FF0000",
+  });
+
+  this.socket.on("scoreUpdate", function (scores) {
+    self.blueScoreText.setText("Blue: " + scores.blue);
+    self.redScoreText.setText("Red: " + scores.red);
+  });
+
+  this.socket.on('starLocation', function (starLocation) {
+    if (self.star) self.star.destroy();
+    self.star = self.physics.add.image(starLocation.x, starLocation.y, 'star');
+    self.physics.add.overlap(self.ship, self.star, function () {
+      this.socket.emit('starCollected');
+    }, null, self);
   });
 }
 
