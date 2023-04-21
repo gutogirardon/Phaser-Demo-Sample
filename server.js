@@ -8,8 +8,8 @@ var star = {
   y: Math.floor(Math.random() * 500) + 50,
 };
 var scores = {
-  blue: 5000,
-  red: 5000,
+  blue: 0,
+  red: 0,
 };
 
 app.use(express.static(__dirname + "/public"));
@@ -17,6 +17,18 @@ app.get("/", function (req, res) {
   res.sendFile(__dirname + "/index.html");
 });
 
+/*
+A função createNewPlayer é responsável por criar um novo jogador para o jogo
+Recebe como parâmetro o id do socket do jogador
+A partir dos jogadores já conectados, ela conta quantos jogadores já estão em cada time (team)
+Atribui a nova conexão para o time com menos jogadores
+Retorna um objeto representando o novo jogador com as seguintes propriedades:
+rotation: valor inicial zero que representa a rotação do jogador
+x: posição horizontal aleatória entre 50 e 750
+y: posição vertical aleatória entre 50 e 550
+playerId: o id do socket do jogador
+team: o time do jogador, definido pela quantidade de jogadores já conectados em cada time
+*/
 function createNewPlayer(socketId) {
   const teamRed = Object.values(players).filter(
     (player) => player.team === "red"
@@ -35,39 +47,47 @@ function createNewPlayer(socketId) {
   };
 }
 
+// A função io.on é responsável por lidar com todas as conexões de socket que se conectarem ao servidor
 io.on("connection", function (socket) {
+  // Adiciona um novo jogador ao objeto players com base no id do socket
   players[socket.id] = createNewPlayer(socket.id);
 
+  // Imprime no console a mensagem de que um novo jogador entrou no jogo e em qual time ele está
   console.log(
     players[socket.id].playerId,
     "Entrou no jogo para o time",
     players[socket.id].team
   );
 
+  // Emite para o socket que se conectou os jogadores atualmente conectados
   socket.emit("currentPlayers", players);
-  // send the star object to the new player  
+
+  // Emite para o socket que se conectou a localização da estrela
   socket.emit("starLocation", star);
-  // send the current scores
+
+  // Emite para o socket que se conectou a pontuação atual
   socket.emit("scoreUpdate", scores);
+
+  // Emite para todos os outros sockets conectados que um novo jogador entrou no jogo
   socket.broadcast.emit("newPlayer", players[socket.id]);
 
+  // Quando um socket se desconecta, é necessário remover o jogador correspondente do objeto players e emitir para todos os outros sockets que aquele jogador se desconectou
   socket.on("disconnect", function () {
-    //aqui usa o protocolo do socket
     console.log(players[socket.id].playerId, "saiu do jogo");
     delete players[socket.id];
-    io.emit("disconnected", socket.id); //a emissao pode ser qualquer string
+    io.emit("disconnected", socket.id);
   });
 
-  // when a player moves, update the player data
+  // Quando um jogador se move, atualiza os dados do jogador no objeto players e emite para todos os outros sockets que aquele jogador se moveu
   socket.on("playerMovement", function (movementData) {
     players[socket.id].x = movementData.x;
     players[socket.id].y = movementData.y;
     players[socket.id].rotation = movementData.rotation;
-    // emit a message to all players about the player that moved
     socket.broadcast.emit("playerMoved", players[socket.id]);
   });
 
-  socket.on("starCollected", function () {    
+  // Quando a estrela é coletada por um jogador, atualiza a posição da estrela e emite para todos os sockets que a posição da estrela mudou e a pontuação atualizada
+  socket.on("starCollected", function () {
     if (players[socket.id].team === "red") {
       scores.red += 10;
     } else {
